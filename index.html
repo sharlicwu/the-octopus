@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Amazing Octopus - Flashcards & Quiz</title>
+    <style>
+        :root { --primary: #1a73e8; --primary-dark: #0d47a1; --bg: #eef2f6; --card-bg: #ffffff; --text-dark: #1f2937; --text-muted: #6b7280; --success: #16a34a; --danger: #dc2626; }
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg); color: var(--text-dark); margin: 0; padding: 20px 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
+        .presentation-container { width: 90%; max-width: 800px; background: var(--card-bg); border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); padding: 30px 40px; position: relative; min-height: 620px; display: flex; flex-direction: column; justify-content: space-between; }
+        
+        .page { display: none; flex-direction: column; justify-content: space-between; flex-grow: 1; animation: fadeIn 0.3s ease-in-out; }
+        .page.active { display: flex; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .top-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f3f4f6; padding-bottom: 12px; margin-bottom: 15px; }
+        .student-tag { font-size: 15px; font-weight: bold; color: var(--primary-dark); background: #e8f0fe; padding: 4px 12px; border-radius: 12px; }
+        .page-indicator { font-size: 14px; font-weight: 600; color: var(--text-muted); }
+        .home-nav-btn { background-color: #f1f5f9; color: var(--primary-dark); border: 1px solid #cbd5e1; padding: 5px 12px; border-radius: 15px; font-size: 13px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .home-nav-btn:hover { background-color: #e2e8f0; }
+
+        .welcome-screen { text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 400px; gap: 18px; }
+        .welcome-title { font-size: 28px; color: var(--primary-dark); font-weight: 800; }
+        .welcome-input { padding: 12px 20px; font-size: 18px; border: 2px solid #cbd5e1; border-radius: 12px; outline: none; text-align: center; width: 260px; transition: 0.2s; }
+        .welcome-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(26,115,232,0.2); }
+        .btn-group { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
+        .start-btn { background-color: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 25px; font-size: 15px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(26,115,232,0.3); }
+        .listen-btn { background-color: #f1f5f9; color: var(--primary-dark); border: 2px solid var(--primary); padding: 12px 20px; border-radius: 25px; font-size: 15px; font-weight: bold; cursor: pointer; }
+        .quiz-btn { background-color: #fef3c7; color: #b45309; border: 2px solid #f59e0b; padding: 12px 20px; border-radius: 25px; font-size: 15px; font-weight: bold; cursor: pointer; }
+
+        .listen-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; max-height: 400px; overflow-y: auto; padding: 10px; margin-top: 10px; }
+        .listen-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; text-align: center; cursor: pointer; transition: 0.2s; }
+        .listen-card:hover { border-color: var(--primary); background: #e8f0fe; transform: translateY(-2px); }
+        .listen-word { font-size: 18px; font-weight: bold; color: var(--primary-dark); }
+        .listen-zh { font-size: 13px; color: var(--text-muted); }
+
+        .word-section { text-align: center; margin: 5px 0 15px 0; }
+        .icon-large { font-size: 56px; margin-bottom: 5px; display: inline-block; }
+        .word-title { font-size: 32px; font-weight: 800; color: var(--primary-dark); margin: 5px 0; }
+        .word-translation { font-size: 20px; color: var(--text-muted); font-weight: 600; margin-bottom: 12px; }
+        .word-audio-btn { background-color: var(--primary); color: white; border: none; padding: 8px 20px; border-radius: 25px; font-size: 15px; font-weight: 600; cursor: pointer; }
+        .sentence-container { background-color: #f8fafc; border-left: 6px solid var(--primary); border-radius: 12px; padding: 16px 20px; margin-top: 10px; }
+        .sentence-en { font-size: 18px; line-height: 1.5; color: #0f172a; font-weight: 500; margin-bottom: 8px; }
+        .sentence-zh { font-size: 15px; color: #475569; line-height: 1.4; }
+        .highlight { color: var(--primary); font-weight: 700; text-decoration: underline; }
+        
+        .sentence-audio-area { display: flex; flex-direction: column; align-items: center; margin-top: 15px; }
+        .btn-subtle { background-color: #e8f0fe; color: var(--primary); border: none; padding: 8px 18px; border-radius: 30px; font-size: 14px; font-weight: 600; cursor: pointer; }
+        
+        .record-box { margin-top: 15px; width: 100%; background: #f0fdf4; border: 2px solid #bbf7d0; padding: 15px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        .rec-status { font-size: 14px; font-weight: bold; color: var(--danger); display: none; }
+        .rec-status.active { display: inline-block; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+        .record-actions { display: flex; gap: 12px; align-items: center; justify-content: center; flex-wrap: wrap; }
+        .record-action-btn { background-color: var(--success); color: white; border: none; padding: 10px 22px; border-radius: 20px; font-size: 15px; font-weight: 600; cursor: pointer; }
+        .record-action-btn.recording { background-color: var(--danger); }
+        .upload-action-btn { background-color: var(--primary); color: white; border: none; padding: 10px 22px; border-radius: 20px; font-size: 15px; font-weight: 600; cursor: pointer; display: none; }
+        .audio-preview { width: 100%; max-width: 400px; height: 36px; margin-top: 5px; display: none; }
+        
+        .nav-controls { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding-top: 15px; border-top: 2px solid #f3f4f6; }
+        .nav-btn { background-color: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; }
+        .nav-btn:disabled { background-color: #d1d5db; cursor: not-allowed; }
+        .keyboard-hint { font-size: 12px; color: #9ca3af; text-align: center; margin-top: 12px; }
+
+        .quiz-container { display: flex; flex-direction: column; gap: 20px; align-items: center; margin-top: 20px; }
+        .quiz-word { font-size: 34px; font-weight: bold; color: var(--primary-dark); text-align: center; }
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 500px; }
+        .option-btn { background: #f8fafc; border: 2px solid #cbd5e1; padding: 16px; border-radius: 14px; font-size: 16px; font-weight: 600; cursor: pointer; transition: 0.2s; color: var(--text-dark); }
+        .option-btn:hover { border-color: var(--primary); background: #e8f0fe; }
+        .option-btn.wrong { border-color: var(--danger) !important; background-color: #fef2f2 !important; color: var(--danger) !important; font-weight: bold; }
+        .option-btn.correct { border-color: var(--success) !important; background-color: #f0fdf4 !important; color: var(--success) !important; font-weight: bold; }
+        .quiz-result { text-align: center; display: none; flex-direction: column; gap: 20px; align-items: center; }
+        .score-display { font-size: 42px; font-weight: 800; color: var(--primary-dark); }
+    </style>
+</head>
+<body>
+
+<div class="presentation-container">
+    <div class="page active" id="welcome-page">
+        <div class="welcome-screen">
+            <div style="font-size: 60px;">🐙</div>
+            <div class="welcome-title">The Amazing Octopus<br><span style="font-size:18px; color: var(--text-muted);">英文單字學習與測驗系統</span></div>
+            <input type="text" id="studentNameInput" class="welcome-input" placeholder="請輸入你的姓名" autofocus>
+            
+            <div class="btn-group">
+                <button class="listen-btn" onclick="checkNameAndRun(openListeningMode)">🎧 聽力練習</button>
+                <button class="start-btn" onclick="checkNameAndRun(startPractice)">🎤 錄音練習</button>
+                <button class="quiz-btn" onclick="checkNameAndRun(startQuiz)">📝 單字測驗</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="page" id="listening-page">
+        <div>
+            <div class="top-bar">
+                <span class="student-tag">🎧 聽力自主練習區</span>
+                <button class="home-nav-btn" onclick="goHome()">🏠 選單首頁</button>
+            </div>
+            <div class="listen-grid" id="listenGrid"></div>
+        </div>
+        <div class="sentence-audio-area">
+            <button class="start-btn" onclick="startPractice()">準備好了，開始錄音練習 🎤</button>
+        </div>
+    </div>
+
+    <div class="page" id="card-page">
+        <div>
+            <div class="top-bar">
+                <span class="student-tag" id="displayStudentName">學生：--</span>
+                <button class="home-nav-btn" onclick="goHome()">🏠 選單首頁</button>
+            </div>
+            
+            <div class="word-section">
+                <div class="icon-large" id="cardIcon">✨</div>
+                <div class="word-title" id="cardWord">stay awake</div>
+                <div class="word-translation" id="cardTranslation">保持清醒</div>
+                <button class="word-audio-btn" onclick="speakCurrentWord()">🔊 朗讀單字</button>
+            </div>
+            
+            <div class="sentence-container">
+                <div class="sentence-en" id="cardSentenceEn">...</div>
+                <div class="sentence-zh" id="cardSentenceZh">...</div>
+            </div>
+        </div>
+
+        <div class="sentence-audio-area">
+            <button class="btn-subtle" onclick="speakCurrentSentence()">🔊 朗讀課文例句</button>
+        </div>
+
+        <div class="record-box">
+            <div class="rec-status" id="recStatus">🔴 正在錄音中...（可任意切換頁面唸，唸完按停止即可）</div>
+            <div class="record-actions">
+                <button class="record-action-btn" id="recordBtn" onclick="toggleRecording()">🎤 開始錄音</button>
+                <button class="upload-action-btn" id="uploadBtn" onclick="uploadAudio()">📤 傳送語音作業</button>
+            </div>
+            <audio class="audio-preview" id="audioPreview" controls></audio>
+        </div>
+
+        <div class="nav-controls">
+            <button class="nav-btn" id="prevBtn" onclick="changePage(-1)">← 上一個</button>
+            <span style="font-weight: bold; color: var(--text-muted);" id="pageCounter">1 / 20</span>
+            <button class="nav-btn" id="nextBtn" onclick="changePage(1)">下一個 →</button>
+        </div>
+    </div>
+
+    <div class="page" id="quiz-page">
+        <div>
+            <div class="top-bar">
+                <span class="student-tag" id="quizStudentName">學生：--</span>
+                <div>
+                    <span class="page-indicator" id="quizProgress" style="margin-right:10px;">第 1 / 20 題</span>
+                    <button class="home-nav-btn" onclick="goHome()">🏠 選單首頁</button>
+                </div>
+            </div>
+
+            <div class="quiz-container" id="quizBox">
+                <div class="quiz-word" id="quizWord">stay awake</div>
+                <button class="btn-subtle" onclick="speakQuizWord()">🔊 發音</button>
+                <div class="options-grid" id="optionsGrid"></div>
+            </div>
+
+            <div class="quiz-result" id="quizResultBox">
+                <div style="font-size: 60px;">🏆</div>
+                <h2>測驗完成！</h2>
+                <div class="score-display" id="finalScore">答對 0 / 20 題</div>
+                <div style="display:flex; gap:10px;">
+                    <button class="start-btn" id="uploadScoreBtn" onclick="uploadQuizScore()">📤 傳送成績至試算表</button>
+                    <button class="listen-btn" onclick="startQuiz()">🔄 再測驗一次</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="keyboard-hint" id="keyboardHint" style="display:none;">💡 提示：切換頁面時會<b>自動發音單字</b>，亦可使用鍵盤 <b>← 左右方向鍵 →</b> 切換</div>
+
+<script>
+    const cardsData = [
+        { 
+            word: "stay awake", 
+            zh: "保持清醒", 
+            icon: "👀", 
+            enSent: "Most octopuses <span class='highlight'>stay awake</span> at night and sleep during the day.", 
+            zhSent: "大多數章魚在晚上保持清醒，並在白天睡覺。", 
+            rawSent: "Most octopuses stay awake at night and sleep during the day." 
+        },
+        { 
+            word: "opposite", 
+            zh: "相反的", 
+            icon: "🔄", 
+            enSent: "The big blue, or day, octopus does the <span class='highlight'>opposite</span>.", 
+            zhSent: "大藍章魚（或稱日間章魚）則做相反的事。", 
+            rawSent: "The big blue, or day, octopus does the opposite." 
+        },
+        { 
+            word: "incredible", 
+            zh: "難以置信的、極好的", 
+            icon: "🌟", 
+            enSent: "Their interesting looks and <span class='highlight'>incredible</span> skills make octopuses amazing creatures.", 
+            zhSent: "它們有趣的外表和不可思議的技能，使章魚成為奇妙的生物。", 
+            rawSent: "Their interesting looks and incredible skills make octopuses amazing creatures." 
+        },
+        { 
+            word: "creatures", 
+            zh: "生物、動物", 
+            icon: "🐙", 
+            enSent: "Their interesting looks and incredible skills make octopuses amazing <span class='highlight'>creatures</span> of the sea.", 
+            zhSent: "它們有趣的外表和不可思議的技能，使章魚成為海洋中奇妙的生物。", 
+            rawSent: "Their interesting looks and incredible skills make octopuses amazing creatures of the sea." 
+        },
+        { 
+            word: "hatch", 
+            zh: "孵化", 
+            icon: "🐣", 
+            enSent: "A baby octopus <span class='highlight'>hatches</span> out of its egg.", 
+            zhSent: "小章魚從卵中孵化出來。", 
+            rawSent: "A baby octopus hatches out of its egg." 
+        },
+        { 
+            word: "siphon", 
+            zh: "漏管、虹吸管", 
+            icon: "🧪", 
+            enSent: "Near its head, an octopus has a tube called a <span class='highlight'>siphon</span>.", 
+            zhSent: "在頭部附近，章魚有一個稱為虹吸管的管子。", 
+            rawSent: "Near its head, an octopus has a tube called a siphon." 
+        },
+        { 
+            word: "suckers", 
+            zh: "吸盤", 
+            icon: "⭕", 
+            enSent: "The arms of octopuses are covered with <span class='highlight'>suckers</span>.", 
+            zhSent: "章魚的腕足覆滿了吸盤。", 
+            rawSent: "The arms of octopuses are covered with suckers." 
+        },
+        { 
+            word: "prey", 
+            zh: "獵物", 
+            icon: "🐟", 
+            enSent: "They help octopuses move around, grab onto rocks, and catch <span class='highlight'>prey</span>.", 
+            zhSent: "它們幫助章魚移動、抓握岩石並捕捉獵物。", 
+            rawSent: "They help octopuses move around, grab onto rocks, and catch prey." 
+        },
+        { 
+            word: "maze", 
+            zh: "迷宮", 
+            icon: "🌀", 
+            enSent: "They can find their way out of a <span class='highlight'>maze</span> and can even use tools.", 
+            zhSent: "它們可以找到走出迷宮的路，甚至能使用工具。", 
+            rawSent: "They can find their way out of a maze and can even use tools." 
+        },
+        { 
+            word: "coconut octopus", 
+            zh: "椰子章魚", 
+            icon: "🥥", 
+            enSent: "The <span class='highlight'>coconut octopus</span> finds coconut shells and seashells.", 
+            zhSent: "椰子章魚會尋找椰子殼和貝殼。", 
+            rawSent: "The coconut octopus finds coconut shells and seashells." 
+        },
+        { 
+            word: "Antarctica", 
+            zh: "南極洲", 
+            icon: "❄️", 
+            enSent: "Scientists found this octopus frozen deep under the ice in <span class='highlight'>Antarctica</span>.", 
+            zhSent: "科學家在南極洲冰層深處發現了這隻被冰凍的章魚。", 
+            rawSent: "Scientists found this octopus frozen deep under the ice in Antarctica." 
+        },
+        { 
+            word: "unusual", 
+            zh: "不尋常的、罕見的", 
+            icon: "⚡", 
+            enSent: "Octopuses can swim fast in an <span class='highlight'>unusual</span> way.", 
+            zhSent: "章魚能以不尋常的方式快速游泳。", 
+            rawSent: "Octopuses can swim fast in an unusual way." 
+        },
+        { 
+            word: "squirt", 
+            zh: "噴射、噴出", 
+            icon: "💦", 
+            enSent: "Then, they <span class='highlight'>squirt</span> water out of their siphon.", 
+            zhSent: "接著，它們從虹吸管噴出水。", 
+            rawSent: "Then, they squirt water out of their siphon." 
+        },
+        { 
+            word: "banded", 
+            zh: "有條紋的", 
+            icon: "🦓", 
+            enSent: "An octopus uses its arms to catch and eat a <span class='highlight'>banded</span> sea snake.", 
+            zhSent: "章魚用牠們的腕足捕捉並吃掉一條有條紋的海蛇。", 
+            rawSent: "An octopus uses its arms to catch and eat a banded sea snake." 
+        },
+        { 
+            word: "include", 
+            zh: "包括", 
+            icon: "📋", 
+            enSent: "Predators of octopuses <span class='highlight'>include</span> whales, seals, and large fish.", 
+            zhSent: "章魚的掠食者包括鯨魚、海豹和大魚。", 
+            rawSent: "Predators of octopuses include whales, seals, and large fish." 
+        },
+        { 
+            word: "venom", 
+            zh: "毒液", 
+            icon: "💉", 
+            enSent: "An octopus can bite an attacker and pass on <span class='highlight'>venom</span>.", 
+            zhSent: "章魚可以咬攻擊者並傳遞毒液。", 
+            rawSent: "An octopus can bite an attacker and pass on venom." 
+        },
+        { 
+            word: "blend in", 
+            zh: "融入、偽裝", 
+            icon: "🦎", 
+            enSent: "Octopuses can even <span class='highlight'>blend in</span> with the colors around them.", 
+            zhSent: "章魚甚至可以與周圍的顏色融為一體。", 
+            rawSent: "Octopuses can even blend in with the colors around them." 
+        },
+        { 
+            word: "mimic", 
+            zh: "擬態、模仿", 
+            icon: "🎭", 
+            enSent: "The <span class='highlight'>mimic</span> octopus can act and look like fish, snakes, and other animals.", 
+            zhSent: "擬態章魚可以像魚類、蛇類和其他動物一樣行動和外觀。", 
+            rawSent: "The mimic octopus can act and look like fish, snakes, and other animals." 
+        },
+        { 
+            word: "pygmy", 
+            zh: "侏儒的、極小的", 
+            icon: "🦐", 
+            enSent: "The star-sucker <span class='highlight'>pygmy</span> octopus is the smallest octopus in the world.", 
+            zhSent: "星吸盤侏儒章魚是世界上最小的章魚。", 
+            rawSent: "The star-sucker pygmy octopus is the smallest octopus in the world." 
+        },
+        { 
+            word: "dumbo octopus", 
+            zh: "小飛象章魚", 
+            icon: "🐘", 
+            enSent: "The <span class='highlight'>dumbo octopus</span> uses its earlar-like fins to swim around.", 
+            zhSent: "小飛象章魚利用其耳朵般的鰭四處游動。", 
+            rawSent: "The dumbo octopus uses its earlar-like fins to swim around." 
+        }
+    ];
+
+    let currentIndex = 0;
+    let studentName = "";
+    let uploadCount = 0;
+    
+    const scriptURL = 'https://script.google.com/macros/s/AKfycbx6nIx8PqMb3pKo02c3X8HaDm89_9d4Rc3mZoQVaEpZeTe4klCJf-eLZvPCgctmQSj4/exec';
+    
+    let audioStream = null;
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let currentBlob = null;
+
+    let quizIndex = 0;
+    let quizScore = 0;
+    let quizList = [];
+    let canAnswer = true;
+
+    function checkNameAndRun(callback) {
+        const nameInput = document.getElementById('studentNameInput').value.trim();
+        if (!nameInput && !studentName) {
+            alert('請先輸入學生姓名喔！');
+            return;
+        }
+        if (nameInput) studentName = nameInput;
+        callback();
+    }
+
+    function goHome() {
+        switchPage('welcome-page');
+        document.getElementById('keyboardHint').style.display = 'none';
+    }
+
+    function openListeningMode() {
+        const grid = document.getElementById('listenGrid');
+        grid.innerHTML = '';
+        cardsData.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'listen-card';
+            card.innerHTML = `<div style="font-size:24px;">${item.icon}</div><div class="listen-word">${item.word}</div><div class="listen-zh">${item.zh}</div>`;
+            card.onclick = () => speak(item.word);
+            grid.appendChild(card);
+        });
+
+        switchPage('listening-page');
+    }
+
+    async function startPractice() {
+        try {
+            if (!audioStream) {
+                audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            }
+        } catch (err) {
+            alert('無法獲取麥克風權限，請確認瀏覽器已允許使用麥克風！');
+            return;
+        }
+
+        switchPage('card-page');
+        document.getElementById('keyboardHint').style.display = 'block';
+        document.getElementById('displayStudentName').innerText = `學生：${studentName}`;
+        loadCard(0, true);
+    }
+
+    function switchPage(pageId) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById(pageId).classList.add('active');
+    }
+
+    function loadCard(index, autoSpeak = false) {
+        currentIndex = index;
+        const data = cardsData[currentIndex];
+
+        document.getElementById('cardIcon').innerText = data.icon;
+        document.getElementById('cardWord').innerText = data.word;
+        document.getElementById('cardTranslation').innerText = data.zh;
+        document.getElementById('cardSentenceEn').innerHTML = data.enSent;
+        document.getElementById('cardSentenceZh').innerText = data.zhSent;
+
+        document.getElementById('pageCounter').innerText = `${currentIndex + 1} / ${cardsData.length}`;
+        document.getElementById('prevBtn').disabled = (currentIndex === 0);
+        document.getElementById('nextBtn').disabled = (currentIndex === cardsData.length - 1);
+
+        if (autoSpeak) speak(data.word);
+    }
+
+    function changePage(direction) {
+        let newIndex = currentIndex + direction;
+        if (newIndex >= 0 && newIndex < cardsData.length) loadCard(newIndex, true);
+    }
+
+    function speakCurrentWord() { speak(cardsData[currentIndex].word); }
+    function speakCurrentSentence() { speak(cardsData[currentIndex].rawSent); }
+
+    function speak(text) {
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'en-US';
+            utterance.rate = 0.9;
+            window.speechSynthesis.speak(utterance);
+        }
+    }
+
+    function toggleRecording() {
+        const recordBtn = document.getElementById('recordBtn');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const preview = document.getElementById('audioPreview');
+        const recStatus = document.getElementById('recStatus');
+
+        if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+            audioChunks = [];
+            currentBlob = null;
+            mediaRecorder = new MediaRecorder(audioStream);
+            
+            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+            mediaRecorder.onstop = () => {
+                currentBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                preview.src = URL.createObjectURL(currentBlob);
+                preview.style.display = 'block';
+                uploadBtn.style.display = 'inline-block';
+                uploadBtn.innerText = '📤 傳送語音作業';
+                uploadBtn.disabled = false;
+            };
+
+            mediaRecorder.start();
+            recordBtn.innerText = '⏹️ 停止/結束錄音';
+            recordBtn.classList.add('recording');
+            recStatus.classList.add('active');
+            preview.style.display = 'none';
+            uploadBtn.style.display = 'none';
+        } else {
+            mediaRecorder.stop();
+            recordBtn.innerText = '🎤 開始下一段錄音';
+            recordBtn.classList.remove('recording');
+            recStatus.classList.remove('active');
+        }
+    }
+
+    function uploadAudio() {
+        if (!currentBlob) return alert('請先錄音再上傳！');
+
+        const uploadBtn = document.getElementById('uploadBtn');
+        uploadBtn.innerText = '⏳ 上傳中...';
+        uploadBtn.disabled = true;
+
+        uploadCount++;
+        const fileName = `${studentName}_朗讀作業_${uploadCount}.webm`;
+
+        const reader = new FileReader();
+        reader.readAsDataURL(currentBlob);
+        reader.onloadend = function() {
+            const base64Audio = reader.result.split(',')[1];
+            fetch(scriptURL, {
+                method: 'POST',
+                body: JSON.stringify({ audio: base64Audio, mimeType: 'audio/webm', filename: fileName })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.result === 'success') {
+                    alert(`🎉 作業段落 ${uploadCount} 上傳成功！已存入老師的雲端！`);
+                    uploadBtn.innerText = '✅ 上傳成功（可繼續錄下一段）';
+                    document.getElementById('recordBtn').innerText = '🎤 開始錄下一段';
+                } else {
+                    alert('上傳失敗：' + data.error);
+                    uploadBtn.innerText = '📤 重新傳送';
+                    uploadBtn.disabled = false;
+                    uploadCount--;
+                }
+            })
+            .catch(err => {
+                alert('上傳發生錯誤，請重試！');
+                uploadBtn.innerText = '📤 重新傳送';
+                uploadBtn.disabled = false;
+                uploadCount--;
+            });
+        };
+    }
+
+    function startQuiz() {
+        quizIndex = 0;
+        quizScore = 0;
+        quizList = [...cardsData].sort(() => Math.random() - 0.5);
+        
+        switchPage('quiz-page');
+        document.getElementById('quizStudentName').innerText = `學生：${studentName}`;
+        document.getElementById('quizBox').style.display = 'flex';
+        document.getElementById('quizResultBox').style.display = 'none';
+        
+        loadQuizQuestion();
+    }
+
+    function loadQuizQuestion() {
+        canAnswer = true;
+        const currentQ = quizList[quizIndex];
+        document.getElementById('quizProgress').innerText = `第 ${quizIndex + 1} / ${quizList.length} 題`;
+        document.getElementById('quizWord').innerText = currentQ.word;
+        speak(currentQ.word);
+
+        let options = [currentQ.zh];
+        let otherZhs = cardsData.map(c => c.zh).filter(z => z !== currentQ.zh).sort(() => Math.random() - 0.5);
+        options.push(...otherZhs.slice(0, 3));
+        options.sort(() => Math.random() - 0.5);
+
+        const optionsGrid = document.getElementById('optionsGrid');
+        optionsGrid.innerHTML = '';
+
+        options.forEach(optText => {
+            const btn = document.createElement('button');
+            btn.className = 'option-btn';
+            btn.innerText = optText;
+            btn.onclick = () => checkAnswer(btn, optText, currentQ.zh);
+            optionsGrid.appendChild(btn);
+        });
+    }
+
+    function speakQuizWord() {
+        speak(quizList[quizIndex].word);
+    }
+
+    function checkAnswer(selectedBtn, selectedText, correctText) {
+        if (!canAnswer) return;
+        canAnswer = false;
+
+        if (selectedText === correctText) {
+            selectedBtn.classList.add('correct');
+            quizScore++;
+        } else {
+            selectedBtn.classList.add('wrong');
+            document.querySelectorAll('.option-btn').forEach(btn => {
+                if (btn.innerText === correctText) btn.classList.add('correct');
+            });
+        }
+
+        setTimeout(() => {
+            quizIndex++;
+            if (quizIndex < quizList.length) {
+                loadQuizQuestion();
+            } else {
+                showQuizResult();
+            }
+        }, 1200);
+    }
+
+    function showQuizResult() {
+        document.getElementById('quizBox').style.display = 'none';
+        document.getElementById('quizResultBox').style.display = 'flex';
+        document.getElementById('finalScore').innerText = `答對 ${quizScore} / ${quizList.length} 題`;
+        
+        const uploadBtn = document.getElementById('uploadScoreBtn');
+        uploadBtn.innerText = '📤 傳送成績至試算表';
+        uploadBtn.disabled = false;
+    }
+
+    function uploadQuizScore() {
+        const uploadBtn = document.getElementById('uploadScoreBtn');
+        uploadBtn.innerText = '⏳ 上傳成績中...';
+        uploadBtn.disabled = true;
+
+        const formData = new URLSearchParams();
+        formData.append('type', 'quiz');
+        formData.append('studentName', studentName);
+        formData.append('score', quizScore);
+        formData.append('total', quizList.length);
+
+        fetch(scriptURL, {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.result === 'success') {
+                alert('🎉 測驗成績已成功寫入老師的 Google 試算表！');
+                uploadBtn.innerText = '✅ 成績已登錄試算表';
+            } else {
+                alert('上傳失敗：' + (data.error || '未知錯誤'));
+                uploadBtn.innerText = '📤 重新傳送成績';
+                uploadBtn.disabled = false;
+            }
+        })
+        .catch(err => {
+            alert('上傳發生錯誤，請重試！');
+            uploadBtn.innerText = '📤 重新傳送成績';
+            uploadBtn.disabled = false;
+        });
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (!document.getElementById('card-page').classList.contains('active')) return;
+        if (e.key === 'ArrowLeft') changePage(-1);
+        if (e.key === 'ArrowRight') changePage(1);
+    });
+</script>
+</body>
+</html>
