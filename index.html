@@ -132,7 +132,7 @@
             <div class="rec-status" id="recStatus">🔴 正在錄音中...（可任意切換頁面唸，唸完按停止即可）</div>
             <div class="record-actions">
                 <button class="record-action-btn" id="recordBtn" onclick="toggleRecording()">🎤 開始錄音</button>
-                <button class="upload-action-btn" id="uploadBtn" onclick="uploadAudio()">📤 傳送語音作業</button>
+                <button class="upload-action-btn" id="uploadBtn" disabled>⏳ 自動上傳中...</button>
             </div>
             <audio class="audio-preview" id="audioPreview" controls></audio>
         </div>
@@ -450,68 +450,109 @@
             audioChunks = [];
             currentBlob = null;
             mediaRecorder = new MediaRecorder(audioStream);
-            
-            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+
+            mediaRecorder.ondataavailable = e => {
+                if (e.data && e.data.size > 0) {
+                    audioChunks.push(e.data);
+                }
+            };
+
             mediaRecorder.onstop = () => {
                 currentBlob = new Blob(audioChunks, { type: 'audio/webm' });
                 preview.src = URL.createObjectURL(currentBlob);
                 preview.style.display = 'block';
-                uploadBtn.style.display = 'inline-block';
-                uploadBtn.innerText = '📤 傳送語音作業';
-                uploadBtn.disabled = false;
+
+                // 停止錄音後立即自動上傳，不需要學生再按按鈕
+                uploadAudio();
             };
 
             mediaRecorder.start();
             recordBtn.innerText = '⏹️ 停止/結束錄音';
             recordBtn.classList.add('recording');
+            recStatus.innerText = '🔴 正在錄音中...（唸完按停止，系統會自動上傳）';
             recStatus.classList.add('active');
             preview.style.display = 'none';
             uploadBtn.style.display = 'none';
         } else {
             mediaRecorder.stop();
-            recordBtn.innerText = '🎤 開始下一段錄音';
+            recordBtn.innerText = '⏳ 錄音處理中...';
+            recordBtn.disabled = true;
             recordBtn.classList.remove('recording');
             recStatus.classList.remove('active');
         }
     }
 
     function uploadAudio() {
-        if (!currentBlob) return alert('請先錄音再上傳！');
+        if (!currentBlob) {
+            alert('找不到錄音檔，請重新錄音！');
+            const recordBtn = document.getElementById('recordBtn');
+            recordBtn.innerText = '🎤 開始錄音';
+            recordBtn.disabled = false;
+            return;
+        }
 
         const uploadBtn = document.getElementById('uploadBtn');
-        uploadBtn.innerText = '⏳ 上傳中...';
+        const recordBtn = document.getElementById('recordBtn');
+
+        uploadBtn.style.display = 'inline-block';
+        uploadBtn.innerText = '⏳ 正在自動上傳...';
         uploadBtn.disabled = true;
+        recordBtn.innerText = '⏳ 上傳中...';
+        recordBtn.disabled = true;
 
         uploadCount++;
-        const fileName = `${studentName}_朗讀作業_${uploadCount}.webm`;
+        const thisUploadNumber = uploadCount;
+        const fileName = `${studentName}_朗讀作業_${thisUploadNumber}.webm`;
 
         const reader = new FileReader();
         reader.readAsDataURL(currentBlob);
+
         reader.onloadend = function() {
             const base64Audio = reader.result.split(',')[1];
+
             fetch(scriptURL, {
                 method: 'POST',
-                body: JSON.stringify({ audio: base64Audio, mimeType: 'audio/webm', filename: fileName })
+                body: JSON.stringify({
+                    audio: base64Audio,
+                    mimeType: 'audio/webm',
+                    filename: fileName
+                })
             })
             .then(res => res.json())
             .then(data => {
                 if (data.result === 'success') {
-                    alert(`🎉 作業段落 ${uploadCount} 上傳成功！已存入老師的雲端！`);
-                    uploadBtn.innerText = '✅ 上傳成功（可繼續錄下一段）';
-                    document.getElementById('recordBtn').innerText = '🎤 開始錄下一段';
+                    uploadBtn.innerText = '✅ 已自動上傳';
+                    recordBtn.innerText = '🎤 開始錄下一段';
+                    recordBtn.disabled = false;
+
+                    // 短暫顯示成功訊息，不跳出 alert 打斷學生操作
+                    recStatus.innerText = `✅ 第 ${thisUploadNumber} 段錄音已自動上傳成功！`;
+                    recStatus.classList.add('active');
+                    recStatus.style.color = 'var(--success)';
                 } else {
-                    alert('上傳失敗：' + data.error);
-                    uploadBtn.innerText = '📤 重新傳送';
-                    uploadBtn.disabled = false;
+                    alert('上傳失敗：' + (data.error || '未知錯誤'));
                     uploadCount--;
+                    uploadBtn.innerText = '❌ 上傳失敗';
+                    recordBtn.innerText = '🎤 重新錄音';
+                    recordBtn.disabled = false;
                 }
             })
             .catch(err => {
-                alert('上傳發生錯誤，請重試！');
-                uploadBtn.innerText = '📤 重新傳送';
-                uploadBtn.disabled = false;
+                console.error('Upload error:', err);
+                alert('上傳發生錯誤，請確認網路連線後重新錄音！');
                 uploadCount--;
+                uploadBtn.innerText = '❌ 上傳失敗';
+                recordBtn.innerText = '🎤 重新錄音';
+                recordBtn.disabled = false;
             });
+        };
+
+        reader.onerror = function() {
+            alert('錄音檔讀取失敗，請重新錄音！');
+            uploadCount--;
+            uploadBtn.innerText = '❌ 讀取失敗';
+            recordBtn.innerText = '🎤 重新錄音';
+            recordBtn.disabled = false;
         };
     }
 
