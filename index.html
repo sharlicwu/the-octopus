@@ -55,7 +55,6 @@
         .record-actions { display: flex; gap: 12px; align-items: center; justify-content: center; flex-wrap: wrap; }
         .record-action-btn { background-color: var(--success); color: white; border: none; padding: 10px 22px; border-radius: 20px; font-size: 15px; font-weight: 600; cursor: pointer; }
         .record-action-btn.recording { background-color: var(--danger); }
-        .upload-action-btn { background-color: var(--primary); color: white; border: none; padding: 10px 22px; border-radius: 20px; font-size: 15px; font-weight: 600; cursor: pointer; display: none; }
         .audio-preview { width: 100%; max-width: 400px; height: 36px; margin-top: 5px; display: none; }
         
         .nav-controls { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding-top: 15px; border-top: 2px solid #f3f4f6; }
@@ -129,10 +128,9 @@
         </div>
 
         <div class="record-box">
-            <div class="rec-status" id="recStatus">🔴 正在錄音中...（可任意切換頁面唸，唸完按停止即可）</div>
+            <div class="rec-status" id="recStatus">🔴 正在錄音中...（唸完按停止即會自動上傳）</div>
             <div class="record-actions">
                 <button class="record-action-btn" id="recordBtn" onclick="toggleRecording()">🎤 開始錄音</button>
-                <button class="upload-action-btn" id="uploadBtn" onclick="uploadAudio()">📤 傳送語音作業</button>
             </div>
             <audio class="audio-preview" id="audioPreview" controls></audio>
         </div>
@@ -164,8 +162,8 @@
                 <div style="font-size: 60px;">🏆</div>
                 <h2>測驗完成！</h2>
                 <div class="score-display" id="finalScore">答對 0 / 20 題</div>
-                <div style="display:flex; gap:10px;">
-                    <button class="start-btn" id="uploadScoreBtn" onclick="uploadQuizScore()">📤 傳送成績至試算表</button>
+                <div id="uploadStatusText" style="font-weight: bold; color: var(--success); margin: 5px 0;">⏳ 正在自動上傳成績至試算表...</div>
+                <div style="display:flex; gap:10px; margin-top: 10px;">
                     <button class="listen-btn" onclick="startQuiz()">🔄 再測驗一次</button>
                 </div>
             </div>
@@ -442,7 +440,6 @@
 
     function toggleRecording() {
         const recordBtn = document.getElementById('recordBtn');
-        const uploadBtn = document.getElementById('uploadBtn');
         const preview = document.getElementById('audioPreview');
         const recStatus = document.getElementById('recStatus');
 
@@ -456,34 +453,31 @@
                 currentBlob = new Blob(audioChunks, { type: 'audio/webm' });
                 preview.src = URL.createObjectURL(currentBlob);
                 preview.style.display = 'block';
-                uploadBtn.style.display = 'inline-block';
-                uploadBtn.innerText = '📤 傳送語音作業';
-                uploadBtn.disabled = false;
+                // 停止錄音後直接觸發自動上傳
+                uploadAudioAutomatically();
             };
 
             mediaRecorder.start();
-            recordBtn.innerText = '⏹️ 停止/結束錄音';
+            recordBtn.innerText = '⏹️ 停止錄音（並自動上傳）';
             recordBtn.classList.add('recording');
             recStatus.classList.add('active');
             preview.style.display = 'none';
-            uploadBtn.style.display = 'none';
         } else {
             mediaRecorder.stop();
-            recordBtn.innerText = '🎤 開始下一段錄音';
+            recordBtn.innerText = '🎤 開始錄音';
             recordBtn.classList.remove('recording');
             recStatus.classList.remove('active');
         }
     }
 
-    function uploadAudio() {
-        if (!currentBlob) return alert('請先錄音再上傳！');
-
-        const uploadBtn = document.getElementById('uploadBtn');
-        uploadBtn.innerText = '⏳ 上傳中...';
-        uploadBtn.disabled = true;
+    function uploadAudioAutomatically() {
+        if (!currentBlob) return;
 
         uploadCount++;
         const fileName = `${studentName}_朗讀作業_${uploadCount}.webm`;
+        const recordBtn = document.getElementById('recordBtn');
+        recordBtn.innerText = '⏳ 正在上傳語音作業...';
+        recordBtn.disabled = true;
 
         const reader = new FileReader();
         reader.readAsDataURL(currentBlob);
@@ -496,20 +490,20 @@
             .then(res => res.json())
             .then(data => {
                 if (data.result === 'success') {
-                    alert(`🎉 作業段落 ${uploadCount} 上傳成功！已存入老師的雲端！`);
-                    uploadBtn.innerText = '✅ 上傳成功（可繼續錄下一段）';
-                    document.getElementById('recordBtn').innerText = '🎤 開始錄下一段';
+                    alert(`🎉 作業段落 ${uploadCount} 上傳成功！已存入雲端！`);
+                    recordBtn.innerText = '🎤 開始錄音';
+                    recordBtn.disabled = false;
                 } else {
                     alert('上傳失敗：' + data.error);
-                    uploadBtn.innerText = '📤 重新傳送';
-                    uploadBtn.disabled = false;
+                    recordBtn.innerText = '🎤 開始錄音';
+                    recordBtn.disabled = false;
                     uploadCount--;
                 }
             })
             .catch(err => {
                 alert('上傳發生錯誤，請重試！');
-                uploadBtn.innerText = '📤 重新傳送';
-                uploadBtn.disabled = false;
+                recordBtn.innerText = '🎤 開始錄音';
+                recordBtn.disabled = false;
                 uploadCount--;
             });
         };
@@ -585,15 +579,14 @@
         document.getElementById('quizResultBox').style.display = 'flex';
         document.getElementById('finalScore').innerText = `答對 ${quizScore} / ${quizList.length} 題`;
         
-        const uploadBtn = document.getElementById('uploadScoreBtn');
-        uploadBtn.innerText = '📤 傳送成績至試算表';
-        uploadBtn.disabled = false;
+        // 顯示測驗完成並自動上傳成績
+        uploadQuizScoreAutomatically();
     }
 
-    function uploadQuizScore() {
-        const uploadBtn = document.getElementById('uploadScoreBtn');
-        uploadBtn.innerText = '⏳ 上傳成績中...';
-        uploadBtn.disabled = true;
+    function uploadQuizScoreAutomatically() {
+        const statusText = document.getElementById('uploadStatusText');
+        statusText.innerText = '⏳ 正在自動上傳成績至試算表...';
+        statusText.style.color = 'var(--primary)';
 
         const formData = new URLSearchParams();
         formData.append('type', 'quiz');
@@ -608,18 +601,16 @@
         .then(res => res.json())
         .then(data => {
             if (data.result === 'success') {
-                alert('🎉 測驗成績已成功寫入老師的 Google 試算表！');
-                uploadBtn.innerText = '✅ 成績已登錄試算表';
+                statusText.innerText = '✅ 成績已自動登錄至老師的 Google 試算表！';
+                statusText.style.color = 'var(--success)';
             } else {
-                alert('上傳失敗：' + (data.error || '未知錯誤'));
-                uploadBtn.innerText = '📤 重新傳送成績';
-                uploadBtn.disabled = false;
+                statusText.innerText = '❌ 上傳失敗：' + (data.error || '未知錯誤');
+                statusText.style.color = 'var(--danger)';
             }
         })
         .catch(err => {
-            alert('上傳發生錯誤，請重試！');
-            uploadBtn.innerText = '📤 重新傳送成績';
-            uploadBtn.disabled = false;
+            statusText.innerText = '❌ 上傳發生錯誤，請檢查網路連線！';
+            statusText.style.color = 'var(--danger)';
         });
     }
 
